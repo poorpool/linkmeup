@@ -5,7 +5,7 @@
 #-------------------------------------------------
 
 QT       += core gui
-
+QT += testlib
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = linkmeup
@@ -32,3 +32,6 @@ HEADERS += \
 
 FORMS += \
         mainwindow.ui
+
+RESOURCES += \
+    resorces.qrc
