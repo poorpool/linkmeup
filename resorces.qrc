@@ -10,6 +10,15 @@
         <file>images/7.jpg</file>
         <file>images/line.jpg</file>
         <file>images/turn.jpg</file>
+        <file>images/8.jpg</file>
+        <file>images/9.jpg</file>
+        <file>images/10.jpg</file>
+        <file>images/11.jpg</file>
+        <file>images/12.jpg</file>
+        <file>images/13.jpg</file>
+        <file>images/14.jpg</file>
+        <file>images/15.jpg</file>
+        <file>images/myico.ico</file>
     </qresource>
     <qresource prefix="/sounds">
         <file>sounds/clicks.wav</file>

@@ -6,29 +6,41 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    //设置图标题目
+    setWindowTitle("linkmeup");
+    setWindowIcon(QIcon(":images/images/myico.ico"));
+
+    //初始化难度
     getDifficulty();
+
+    //初始化图片、音效
     types = nullptr;
     btns = nullptr;
-    for(int i=0; i<=7; i++)
+    for(int i=0; i<=16; i++)
         icons[i].load(QString::asprintf(":images/images/%d.jpg", i));
-
-
     imageLine[0].load(":images/images/line.jpg");
     QMatrix matrix;
     matrix.rotate(90.0);
-    imageLine[1] = imageLine[0].transformed(matrix, Qt::FastTransformation);
+    imageLine[1] = imageLine[0].transformed(matrix,
+                                            Qt::FastTransformation);
     imageTurn[0].load(":images/images/turn.jpg");
     for(int i=1; i<=3; i++)
         imageTurn[i] = imageTurn[i-1].transformed(matrix,
                                                   Qt::FastTransformation);
+    clickSound.setSource(QUrl::fromLocalFile(":sounds/sounds/clicks.wav"));
+    endsSound.setSource(QUrl::fromLocalFile(":sounds/sounds/ends.wav"));
 
+    //设置grid布局
     ui->gridLayout->setHorizontalSpacing(1);
     ui->gridLayout->setVerticalSpacing(1);
     ui->gridLayout->setSizeConstraint(QLayout::SetFixedSize);
     ui->gridLayout->activate();
+
+    //清理场景
     stageClear();
-    clickSound.setSource(QUrl::fromLocalFile(":sounds/sounds/clicks.wav"));
-    endsSound.setSource(QUrl::fromLocalFile(":sounds/sounds/ends.wav"));
+
+    //设置场景
     setBlocks();
 }
 
@@ -45,27 +57,30 @@ void MainWindow::getDifficulty()
     QString dlgTitle = "选择难度";
     QString txtLabel = "请选择难度";
     bool ok = false;
-    //获取难度。默认为普通
+
+    //默认为普通难度
     QString text = QInputDialog::getItem(this, dlgTitle,
                                          txtLabel, items, 1, false, &ok);
-    if(!ok) {
+    if(!ok)
         exit(0);
-    }
+
     if (text=="简单")
-        setDifficulty(6, 6);
+        setDifficulty(6, 6, 8);
     else if (text=="困难")
-        setDifficulty(10, 14);
+        setDifficulty(10, 14, 15);
     else
-        setDifficulty(8, 10);
+        setDifficulty(8, 10, 11);
 }
 
-void MainWindow::setDifficulty(int setHb, int setWb)
+void MainWindow::setDifficulty(int setHb, int setWb, int setFigure)
 {
     hb = setHb;
     wb = setWb;
+    figures = setFigure;
 }
 
 void MainWindow::btnsClicked() {
+    //获取被点击的按钮的坐标
     QObject *obj = qobject_cast<QPushButton *>(sender());
     int thisH=0, thisW=0;
     for(int i=1; i<=hb; i++)
@@ -76,39 +91,48 @@ void MainWindow::btnsClicked() {
                 break;
             }
 
-
-
+    //点击已经消除的无效
     if(types[thisH][thisW]==0)
         return ;
 
+    //如果没有已经点击的按钮，就记录当前按钮为第一个点击的按钮
     if (!lastClickedH && !lastClickedW) {
         lastClickedH = thisH;
         lastClickedW = thisW;
         return ;
     }
-    //点击空图会发生什么？
+
+    //点击已经点过的无效
     if(lastClickedH==thisH && lastClickedW==thisW)
         return ;
+
+    //点击不同类型的无效
     if(types[lastClickedH][lastClickedW]!=types[thisH][thisW]) {
         lastClickedH = thisH;
         lastClickedW = thisW;
         return ;
     }
+
+    //判定这次点击配对的合法性
     LinkPoints lp;
     if(canNoCorner(lastClickedH, lastClickedW, thisH, thisW, lp)
             || canOneCorner(lastClickedH, lastClickedW, thisH, thisW, lp)
             || canTwoCorner(lastClickedH, lastClickedW, thisH, thisW, lp)) {
-        // 启动定时器
+        //如果没有开始游戏，就开始游戏。同时开始计时
         if(!isStarted) {
             isStarted = true;
             pTime->start();
             pTimer->start();
         }
+
+        //点击音效
         clickSound.play();
+
+        //画线连接两张图片
         drawLines(lp);
 
+        //设置两张图片为被点击了
         types[lastClickedH][lastClickedW] = types[thisH][thisW] = 0;
-        //设置图片
         btns[thisH][thisW]->setIcon(icons[0]);
         ui->gridLayout->addWidget(btns[thisH][thisW],
                                   thisH, thisW, 1, 1,
@@ -117,38 +141,37 @@ void MainWindow::btnsClicked() {
         ui->gridLayout->addWidget(btns[lastClickedH][lastClickedW],
                                   lastClickedH, lastClickedW, 1, 1,
                                   Qt::AlignCenter | Qt::AlignHCenter);
+
+        //重置点击按钮
         lastClickedH = lastClickedW = 0;
+
+        //修改进度
         remains -= 2;
         ui->progressBar->setValue(100*(hb*wb-remains)/(hb*wb));
+
+        //结束了，要不要继续玩
         if (remains<=0) {
             pTimer->stop();
             endsSound.play();
-            /*QMessageBox::information(this, "完成", "恭喜你通过本关！",
-                                     QMessageBox::Ok,
-                                     QMessageBox::NoButton);*/
             QMessageBox::StandardButton result =
                     QMessageBox::question(this, "完成",
                                   "恭喜你通过本关！\n要再来一局吗？",
                                   QMessageBox::Yes | QMessageBox::No,
                                   QMessageBox::NoButton);
-            if(result==QMessageBox::No) {
+            if(result==QMessageBox::No)
                 exit(0);
-            }
-            stageClear();
-            getDifficulty();
-            setBlocks();
+            on_actNewGame_triggered();
         }
     }
     else {
+        //不合法的配对
         lastClickedH = lastClickedW = 0;
     }
 }
 
 void MainWindow::onTimeOut()
 {
-    // 获取系统当前时间
-//    QDateTime dateTime = QDateTime::currentDateTime();
-    // 显示的内容
+    //获取流逝的时间并更新lcd
     int elapsedMSec = pTime->elapsed();
     if(elapsedMSec>60000)
         ui->lcdNumber->display(QString::asprintf("%d:%d.%3d",
@@ -163,15 +186,16 @@ void MainWindow::onTimeOut()
 
 void MainWindow::setBlocks()
 {
+    //重置剩余块
     remains = hb * wb;
 
-    //开始计时
+    //初始化计时器
     pTimer = new QTimer;
     pTime = new QTime;
-    // 设置定时间隔
     pTimer->setInterval(60);
     connect(pTimer, SIGNAL(timeout()), this, SLOT(onTimeOut()));
-    //长宽加2,给边上留空
+
+    //初始化按钮数组，按钮类型。长宽加2，边上留空
     btns = new QPushButton **[hb+2];
     types = new int *[hb+2];
     for(int i=0; i<=hb+1; i++) {
@@ -180,8 +204,9 @@ void MainWindow::setBlocks()
     }
     int *typeList = new int [hb*wb];
     for(int i=0; i<hb*wb; i+=2)
-        typeList[i] = typeList[i+1] = i/2 % 7 + 1;
-    //上面一共七种，这样用magicnumber不好。
+        typeList[i] = typeList[i+1] = i/2 % figures + 1;
+
+    //生成随机地图
     qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
     for(int i=0; i<hb*wb; i++) {
         int idx=qrand()%(hb*wb-i)+i;
@@ -190,19 +215,16 @@ void MainWindow::setBlocks()
         typeList[i] = t;
         types[i/wb+1][i%wb+1] = typeList[i];
     }
-    //todo:生成保证有解的地图
-    //todo:完善界面
+
+    //设置地图
     for(int i=0; i<=hb+1; i++)
         for(int j=0; j<=wb+1; j++) {
-            //设置按钮
             btns[i][j] = new QPushButton;
-
             if(i==0 || j==0 || i==hb+1 || j==wb+1) {
                 types[i][j] = 0;
                 btns[i][j]->setIcon(icons[types[i][j]]);
             }
             else {
-                //这儿要改成配置图片or颜色
                 btns[i][j]->setIcon(icons[types[i][j]]);
                 connect(btns[i][j], SIGNAL(clicked()),
                         this, SLOT(btnsClicked()));
@@ -382,28 +404,47 @@ void MainWindow::drawALine(int lstH, int lstW, int thisH,
 
 void MainWindow::drawLines(MainWindow::LinkPoints lp)
 {
+    //画线连接
     for(int i=0; i<=lp.cnt; i++)
-        drawALine(lp.pt[i][0], lp.pt[i][1], lp.pt[i+1][0], lp.pt[i+1][1], false);
+        drawALine(lp.pt[i][0], lp.pt[i][1],
+                lp.pt[i+1][0], lp.pt[i+1][1], false);
     for(int i=1; i<=lp.cnt; i++) {
-        btns[lp.pt[i][0]][lp.pt[i][1]]->setIcon(imageTurn[getDirection(lp.pt[i-1][0], lp.pt[i-1][1],
+        btns[lp.pt[i][0]][lp.pt[i][1]]->setIcon(imageTurn[
+                getDirection(lp.pt[i-1][0],
+                lp.pt[i-1][1],
                 lp.pt[i+1][0], lp.pt[i+1][1],
                 lp.pt[i][0], lp.pt[i][1])]);
-        ui->gridLayout->addWidget(btns[lp.pt[i][0]][lp.pt[i][1]], lp.pt[i][0], lp.pt[i][1],
-                                  1, 1,
-                                  Qt::AlignCenter | Qt::AlignHCenter);
+        ui->gridLayout->addWidget(btns[lp.pt[i][0]][lp.pt[i][1]],
+                lp.pt[i][0], lp.pt[i][1],
+                1, 1,
+                Qt::AlignCenter | Qt::AlignHCenter);
     }
-    /*for(int i=0; i<=3; i++) {
-        btns[1][i]->setIcon(imageTurn[i]);
-        ui->gridLayout->addWidget(btns[1][i], 1, i, Qt::AlignCenter | Qt::AlignHCenter);
-    }*/
+
+    //等待0.2s
     QTest::qWait(200);
 
+    //取消画线（画白块）
     for(int i=0; i<=lp.cnt; i++)
-        drawALine(lp.pt[i][0], lp.pt[i][1], lp.pt[i+1][0], lp.pt[i+1][1], true);
+        drawALine(lp.pt[i][0], lp.pt[i][1],
+                lp.pt[i+1][0], lp.pt[i+1][1], true);
     for(int i=1; i<=lp.cnt; i++) {
         btns[lp.pt[i][0]][lp.pt[i][1]]->setIcon(icons[0]);
-        ui->gridLayout->addWidget(btns[lp.pt[i][0]][lp.pt[i][1]], lp.pt[i][0], lp.pt[i][1],
-                                  1, 1,
-                                  Qt::AlignCenter | Qt::AlignHCenter);
+        ui->gridLayout->addWidget(btns[lp.pt[i][0]][lp.pt[i][1]],
+                lp.pt[i][0], lp.pt[i][1],
+                1, 1,
+                Qt::AlignCenter | Qt::AlignHCenter);
     }
+}
+
+void MainWindow::on_actNewGame_triggered()
+{
+    stageClear();
+    getDifficulty();
+    setBlocks();
+}
+
+void MainWindow::on_actAbout_triggered()
+{
+    QString strInfo = "poorpool 开发的连连看小游戏\n使用Qt开发";
+    QMessageBox::about(this, "关于", strInfo);
 }

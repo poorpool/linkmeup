@@ -190,18 +190,61 @@
      <height>25</height>
     </rect>
    </property>
-  </widget>
-  <widget class="QToolBar" name="mainToolBar">
-   <attribute name="toolBarArea">
-    <enum>TopToolBarArea</enum>
-   </attribute>
-   <attribute name="toolBarBreak">
-    <bool>false</bool>
-   </attribute>
+   <widget class="QMenu" name="menulinkm_eup">
+    <property name="title">
+     <string>游戏选项</string>
+    </property>
+    <addaction name="actNewGame"/>
+    <addaction name="actExit"/>
+    <addaction name="separator"/>
+    <addaction name="actAbout"/>
+   </widget>
+   <addaction name="menulinkm_eup"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="actNewGame">
+   <property name="text">
+    <string> 新游戏</string>
+   </property>
+   <property name="toolTip">
+    <string>新开一局</string>
+   </property>
+  </action>
+  <action name="actExit">
+   <property name="text">
+    <string>退出游戏</string>
+   </property>
+   <property name="toolTip">
+    <string>退出游戏</string>
+   </property>
+  </action>
+  <action name="actAbout">
+   <property name="text">
+    <string>关于</string>
+   </property>
+   <property name="toolTip">
+    <string>关于linkmeup</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>actExit</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>470</x>
+     <y>310</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
