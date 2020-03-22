@@ -9,7 +9,7 @@
 #include <QTime>
 #include <QMessageBox>
 #include <QtTest/QtTest>
-#include <sys/stat.h>
+#include <QSoundEffect>
 
 namespace Ui {
 class MainWindow;
@@ -32,6 +32,11 @@ private:
     int **types;//哪种类型的图片。0代表被清理了
     QPixmap icons[8];//图片，多少种写死了
     QPixmap imageLine[2], imageTurn[4];
+    QTimer *pTimer;
+    QTime *pTime;
+    QSoundEffect clickSound;
+    QSoundEffect endsSound;
+    bool isStarted;
     void setDifficulty(int setHb, int setWb);
     void setBlocks();
 
@@ -51,6 +56,7 @@ private:
 
 private slots:
     void btnsClicked();
+    void onTimeOut();
 };
 
 #endif // MAINWINDOW_H

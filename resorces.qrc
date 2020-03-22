@@ -11,4 +11,8 @@
         <file>images/line.jpg</file>
         <file>images/turn.jpg</file>
     </qresource>
+    <qresource prefix="/sounds">
+        <file>sounds/clicks.wav</file>
+        <file>sounds/ends.wav</file>
+    </qresource>
 </RCC>

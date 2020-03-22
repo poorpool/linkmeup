@@ -19,20 +19,23 @@ MainWindow::MainWindow(QWidget *parent) :
     imageLine[1] = imageLine[0].transformed(matrix, Qt::FastTransformation);
     imageTurn[0].load(":images/images/turn.jpg");
     for(int i=1; i<=3; i++)
-        imageTurn[i] = imageTurn[i-1].transformed(matrix, Qt::FastTransformation);
+        imageTurn[i] = imageTurn[i-1].transformed(matrix,
+                                                  Qt::FastTransformation);
 
     ui->gridLayout->setHorizontalSpacing(1);
     ui->gridLayout->setVerticalSpacing(1);
     ui->gridLayout->setSizeConstraint(QLayout::SetFixedSize);
     ui->gridLayout->activate();
     stageClear();
+    clickSound.setSource(QUrl::fromLocalFile(":sounds/sounds/clicks.wav"));
+    endsSound.setSource(QUrl::fromLocalFile(":sounds/sounds/ends.wav"));
     setBlocks();
 }
 
 MainWindow::~MainWindow()
 {
-    delete ui;
     stageClear();
+    delete ui;
 }
 
 void MainWindow::getDifficulty()
@@ -45,6 +48,9 @@ void MainWindow::getDifficulty()
     //获取难度。默认为普通
     QString text = QInputDialog::getItem(this, dlgTitle,
                                          txtLabel, items, 1, false, &ok);
+    if(!ok) {
+        exit(0);
+    }
     if (text=="简单")
         setDifficulty(6, 6);
     else if (text=="困难")
@@ -69,8 +75,12 @@ void MainWindow::btnsClicked() {
                 thisW = j;
                 break;
             }
+
+
+
     if(types[thisH][thisW]==0)
         return ;
+
     if (!lastClickedH && !lastClickedW) {
         lastClickedH = thisH;
         lastClickedW = thisW;
@@ -88,6 +98,13 @@ void MainWindow::btnsClicked() {
     if(canNoCorner(lastClickedH, lastClickedW, thisH, thisW, lp)
             || canOneCorner(lastClickedH, lastClickedW, thisH, thisW, lp)
             || canTwoCorner(lastClickedH, lastClickedW, thisH, thisW, lp)) {
+        // 启动定时器
+        if(!isStarted) {
+            isStarted = true;
+            pTime->start();
+            pTimer->start();
+        }
+        clickSound.play();
         drawLines(lp);
 
         types[lastClickedH][lastClickedW] = types[thisH][thisW] = 0;
@@ -102,8 +119,21 @@ void MainWindow::btnsClicked() {
                                   Qt::AlignCenter | Qt::AlignHCenter);
         lastClickedH = lastClickedW = 0;
         remains -= 2;
+        ui->progressBar->setValue(100*(hb*wb-remains)/(hb*wb));
         if (remains<=0) {
-            QMessageBox::information(this, "完成", "恭喜你通过本关！", QMessageBox::Ok, QMessageBox::NoButton);
+            pTimer->stop();
+            endsSound.play();
+            /*QMessageBox::information(this, "完成", "恭喜你通过本关！",
+                                     QMessageBox::Ok,
+                                     QMessageBox::NoButton);*/
+            QMessageBox::StandardButton result =
+                    QMessageBox::question(this, "完成",
+                                  "恭喜你通过本关！\n要再来一局吗？",
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::NoButton);
+            if(result==QMessageBox::No) {
+                exit(0);
+            }
             stageClear();
             getDifficulty();
             setBlocks();
@@ -114,9 +144,33 @@ void MainWindow::btnsClicked() {
     }
 }
 
+void MainWindow::onTimeOut()
+{
+    // 获取系统当前时间
+//    QDateTime dateTime = QDateTime::currentDateTime();
+    // 显示的内容
+    int elapsedMSec = pTime->elapsed();
+    if(elapsedMSec>60000)
+        ui->lcdNumber->display(QString::asprintf("%d:%d.%3d",
+                                                 elapsedMSec / 60000,
+                                                 (elapsedMSec / 1000) % 60,
+                                                 elapsedMSec % 1000));
+    else
+        ui->lcdNumber->display(QString::asprintf("%d.%3d",
+                                                 elapsedMSec / 1000,
+                                                 elapsedMSec % 1000));
+}
+
 void MainWindow::setBlocks()
 {
     remains = hb * wb;
+
+    //开始计时
+    pTimer = new QTimer;
+    pTime = new QTime;
+    // 设置定时间隔
+    pTimer->setInterval(60);
+    connect(pTimer, SIGNAL(timeout()), this, SLOT(onTimeOut()));
     //长宽加2,给边上留空
     btns = new QPushButton **[hb+2];
     types = new int *[hb+2];
@@ -126,7 +180,8 @@ void MainWindow::setBlocks()
     }
     int *typeList = new int [hb*wb];
     for(int i=0; i<hb*wb; i+=2)
-        typeList[i] = typeList[i+1] = i/2 % 7 + 1;//一共七种，这样用magicnumber不好。
+        typeList[i] = typeList[i+1] = i/2 % 7 + 1;
+    //上面一共七种，这样用magicnumber不好。
     qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
     for(int i=0; i<hb*wb; i++) {
         int idx=qrand()%(hb*wb-i)+i;
@@ -163,7 +218,8 @@ void MainWindow::setBlocks()
         }
 }
 
-bool MainWindow::canNoCorner(int lstH, int lstW, int thisH, int thisW, LinkPoints &lp)
+bool MainWindow::canNoCorner(int lstH, int lstW,
+                             int thisH, int thisW, LinkPoints &lp)
 {
     lp.cnt = 0;
     lp.pt[0][0] = lstH; lp.pt[0][1] = lstW;
@@ -187,7 +243,8 @@ bool MainWindow::canNoCorner(int lstH, int lstW, int thisH, int thisW, LinkPoint
     return false;
 }
 
-bool MainWindow::canOneCorner(int lstH, int lstW, int thisH, int thisW, LinkPoints &lp)
+bool MainWindow::canOneCorner(int lstH, int lstW,
+                              int thisH, int thisW, LinkPoints &lp)
 {
     lp.cnt = 1;
     lp.pt[0][0] = lstH; lp.pt[0][1] = lstW;
@@ -209,7 +266,8 @@ bool MainWindow::canOneCorner(int lstH, int lstW, int thisH, int thisW, LinkPoin
     return false;
 }
 
-bool MainWindow::canTwoCorner(int lstH, int lstW, int thisH, int thisW, LinkPoints &lp)
+bool MainWindow::canTwoCorner(int lstH, int lstW,
+                              int thisH, int thisW, LinkPoints &lp)
 {
     lp.cnt = 2;
     lp.pt[0][0] = lstH; lp.pt[0][1] = lstW;
@@ -272,10 +330,17 @@ void MainWindow::stageClear()
     }
     delete types;
     delete btns;
+    isStarted = false;
+    if(pTimer!=nullptr) delete pTimer;
+    if(pTime!=nullptr) delete pTime;
+    ui->progressBar->setValue(0);
+    ui->lcdNumber->display(0);
 }
 
-int MainWindow::getDirection(int lstH, int lstW, int thisH, int thisW, int midH, int midW)
+int MainWindow::getDirection(int lstH, int lstW, int thisH,
+                             int thisW, int midH, int midW)
 {
+    Q_UNUSED(midW)
     if(lstH>thisH) {
         int t=lstH; lstH = thisH;   thisH = t;
         t = lstW;   lstW = thisW;   thisW = t;
@@ -290,7 +355,8 @@ int MainWindow::getDirection(int lstH, int lstW, int thisH, int thisW, int midH,
     }
 }
 
-void MainWindow::drawALine(int lstH, int lstW, int thisH, int thisW, bool isW)
+void MainWindow::drawALine(int lstH, int lstW, int thisH,
+                           int thisW, bool isW)
 {
     if(lstW==thisW) {
         int minH=lstH<thisH?lstH:thisH;
